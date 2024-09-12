@@ -1,19 +1,14 @@
 import streamlit as st
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
-from dotenv import load_dotenv
 import os
 # Load environment variables from .env file
-load_dotenv()
 
-# Access API keys
-api_key = os.getenv('API_KEY')
-secret_key = os.getenv('SECRET_KEY')
 
 # Spotify authentication
 sp = spotipy.Spotify(auth_manager=SpotifyOAuth(
-    client_id=api_key,
-    client_secret=secret_key,
+    client_id=API_KEY,
+    client_secret=SECRET_KEY,
     redirect_uri="http://localhost:8501",
     scope="playlist-modify-public user-library-read"
 ))
