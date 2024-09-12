@@ -1,55 +1,99 @@
-import streamlit as st
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
+import streamlit as st
 from dotenv import load_dotenv
 import os
+
 # Load environment variables from .env file
+load_dotenv()
 
-
-# Access API keys
+# Access API keys from .env file
 api_key = os.getenv('API_KEY')
 secret_key = os.getenv('SECRET_KEY')
+redirect_uri = os.getenv('SPOTIPY_REDIRECT_URI', "http://localhost:8501")
 
-# Spotify authentication
-sp = spotipy.Spotify(auth_manager=SpotifyOAuth(
+# Initialize session state
+if 'sp' not in st.session_state:
+    st.session_state.sp = None
+if 'selected_artists' not in st.session_state:
+    st.session_state.selected_artists = []
+
+# Spotify authentication setup
+auth_manager = SpotifyOAuth(
     client_id=api_key,
     client_secret=secret_key,
-    redirect_uri="http://localhost:8501",
+    redirect_uri=redirect_uri,
     scope="playlist-modify-public user-library-read"
-))
+)
+
+# Handle OAuth redirection
+if 'code' in st.query_params:
+    # Complete the OAuth process
+    st.session_state.sp = spotipy.Spotify(auth_manager=auth_manager)
+    st.query_params.clear()  # Clear the query parameters to avoid redirection loops
+elif st.session_state.sp is None:
+    # If no active session, prompt user to authorize
+    auth_url = auth_manager.get_authorize_url()
+    st.markdown(f"[Authorize Spotify Access]({auth_url})")
 
 # Mood selection
-mood = st.selectbox("Choose your mood", ["happy", "sad", "calm", "energetic"])
-mood_features = {
-    "happy": {"danceability": 0.8, "energy": 0.7},
-    "sad": {"danceability": 0.3, "energy": 0.2},
-    "calm": {"danceability": 0.4, "energy": 0.3},
-    "energetic": {"danceability": 0.7, "energy": 0.9}
-}
-selected_features = mood_features[mood]
+if st.session_state.sp:
+    mood = st.selectbox("Choose your mood", ["happy", "sad", "calm", "energetic"])
+    mood_features = {
+        "happy": {"danceability": 0.8, "energy": 0.7},
+        "sad": {"danceability": 0.3, "energy": 0.2},
+        "calm": {"danceability": 0.4, "energy": 0.3},
+        "energetic": {"danceability": 0.7, "energy": 0.9}
+    }
+    selected_features = mood_features[mood]
 
-# Artist search
-selected_artists = []
-def search_artist(query):
-    results = sp.search(q=query, type='artist', limit=5)
-    return results['artists']['items']
+    # Artist search function
+    def search_artist(query):
+        if st.session_state.sp:
+            results = st.session_state.sp.search(q=query, type='artist', limit=5)
+            return results['artists']['items']
+        return []
 
-query = st.text_input("Search for artists")
-if query:
-    artists = search_artist(query)
-    for artist in artists:
-        if st.button(artist['name']):
-            selected_artists.append(artist['id'])
+    # Form to search and select artists
+    with st.form(key="artist_search_form"):
+        query = st.text_input("Search for artists")
+        submit_button = st.form_submit_button(label="Search")
 
-# Create playlist
-if st.button("Create my playlist"):
-    user_id = sp.current_user()['id']
-    playlist = sp.user_playlist_create(user_id, "Mood Playlist", public=True)
-    playlist_id = playlist['id']
+        if submit_button and query:
+            artists = search_artist(query)
+            for artist in artists:
+                if st.checkbox(artist['name'], key=artist['id']):
+                    if artist['id'] not in st.session_state.selected_artists:
+                        st.session_state.selected_artists.append(artist['id'])
 
-    # Example of adding tracks based on mood features
-    results = sp.search(q=f"danceability:{selected_features['danceability']} energy:{selected_features['energy']}", type='track', limit=20)
-    tracks = [track['uri'] for track in results['tracks']['items']]
-    sp.playlist_add_items(playlist_id, tracks)
+    # Display selected artists
+    st.write("Selected Artists:")
+    for artist_id in st.session_state.selected_artists:
+        artist = st.session_state.sp.artist(artist_id)
+        st.write(artist['name'])
 
-    st.success("Playlist created and added to your Spotify profile!")
+    # Create playlist
+    if st.button("Create my playlist"):
+        if st.session_state.selected_artists:
+            user_id = st.session_state.sp.current_user()['id']
+            playlist = st.session_state.sp.user_playlist_create(user_id, "Mood Playlist", public=True)
+            playlist_id = playlist['id']
+
+            # Search for tracks based on mood and artists
+            track_uris = []
+            for artist_id in st.session_state.selected_artists:
+                results = st.session_state.sp.artist_top_tracks(artist_id)
+                for track in results['tracks']:
+                    track_features = st.session_state.sp.audio_features(track['id'])[0]
+                    if (selected_features['danceability'] - 0.1 <= track_features['danceability'] <= selected_features['danceability'] + 0.1) and \
+                       (selected_features['energy'] - 0.1 <= track_features['energy'] <= selected_features['energy'] + 0.1):
+                        track_uris.append(track['uri'])
+
+            # Add tracks to the playlist
+            if track_uris:
+                st.session_state.sp.playlist_add_items(playlist_id, track_uris)
+                st.success("Playlist created and added to your Spotify profile!")
+            else:
+                st.warning("No tracks found matching the mood criteria.")
+        else:
+            st.warning("Please select at least one artist.")
