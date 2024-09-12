@@ -14,6 +14,7 @@ secret_key = os.getenv('SECRET_KEY')
 sp = spotipy.Spotify(auth_manager=SpotifyOAuth(
     client_id=api_key,
     client_secret=secret_key,
+    redirect_uri="http://localhost",
     scope="playlist-modify-public user-library-read"
 ))
 
