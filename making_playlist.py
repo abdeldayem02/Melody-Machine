@@ -3,9 +3,13 @@ from spotipy.oauth2 import SpotifyOAuth
 import streamlit as st
 from dotenv import load_dotenv
 import os
+import logging
+
+# Setup logging
+logging.basicConfig(level=logging.DEBUG)
 
 # Load environment variables from .env file
-load_dotenv()
+load_dotenv('.env')
 
 # Access API keys from .env file
 api_key = os.getenv('API_KEY')
@@ -28,16 +32,19 @@ auth_manager = SpotifyOAuth(
 
 # Handle OAuth redirection
 if 'code' in st.query_params:
-    # Complete the OAuth process
-    st.session_state.sp = spotipy.Spotify(auth_manager=auth_manager)
-    st.query_params.clear()  # Clear the query parameters to avoid redirection loops
+    try:
+        st.session_state.sp = spotipy.Spotify(auth_manager=auth_manager)
+        st.query_params.clear()  # Clear query parameters to avoid redirect loops
+        st.success("Successfully authenticated with Spotify!")
+    except Exception as e:
+        st.error(f"Authorization failed. Error: {e}")
 elif st.session_state.sp is None:
-    # If no active session, prompt user to authorize
     auth_url = auth_manager.get_authorize_url()
     st.markdown(f"[Authorize Spotify Access]({auth_url})")
 
-# Mood selection
+# Mood selection and playlist creation logic
 if st.session_state.sp:
+    # Mood selection
     mood = st.selectbox("Choose your mood", ["happy", "sad", "calm", "energetic"])
     mood_features = {
         "happy": {"danceability": 0.8, "energy": 0.7},
@@ -61,10 +68,14 @@ if st.session_state.sp:
 
         if submit_button and query:
             artists = search_artist(query)
-            for artist in artists:
-                if st.checkbox(artist['name'], key=artist['id']):
-                    if artist['id'] not in st.session_state.selected_artists:
-                        st.session_state.selected_artists.append(artist['id'])
+            st.session_state.search_results = artists  # Save search results in session state
+        else:
+            artists = st.session_state.search_results if 'search_results' in st.session_state else []
+
+        for artist in artists:
+            if st.checkbox(artist['name'], key=artist['id']):
+                if artist['id'] not in st.session_state.selected_artists:
+                    st.session_state.selected_artists.append(artist['id'])
 
     # Display selected artists
     st.write("Selected Artists:")
@@ -85,7 +96,8 @@ if st.session_state.sp:
                 results = st.session_state.sp.artist_top_tracks(artist_id)
                 for track in results['tracks']:
                     track_features = st.session_state.sp.audio_features(track['id'])[0]
-                    if (selected_features['danceability'] - 0.1 <= track_features['danceability'] <= selected_features['danceability'] + 0.1) and \
+                    if track_features and \
+                       (selected_features['danceability'] - 0.1 <= track_features['danceability'] <= selected_features['danceability'] + 0.1) and \
                        (selected_features['energy'] - 0.1 <= track_features['energy'] <= selected_features['energy'] + 0.1):
                         track_uris.append(track['uri'])
 
