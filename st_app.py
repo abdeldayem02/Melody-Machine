@@ -18,16 +18,39 @@ secret_key = os.getenv('SECRET_KEY')
 redirect_uri = os.getenv('SPOTIPY_REDIRECT_URI')
 
 # Spotify authentication setup
-auth_manager = SpotifyOAuth(
-    client_id=api_key,
-    client_secret=secret_key,
-    redirect_uri=redirect_uri,
-    scope="playlist-modify-public user-library-read",
-    cache_path=".spotify_token_cache"  # Cache to prevent repeated authorization prompts
-)
+scope = "playlist-modify-public user-library-read"
+
+# Initialize OAuth manager and handle access tokens in session state
+def get_auth_manager():
+    if 'token_info' not in st.session_state:
+        sp_oauth = SpotifyOAuth(
+            client_id=api_key,
+            client_secret=secret_key,
+            redirect_uri=redirect_uri,
+            scope=scope,
+            cache_path=".spotify_token_cache"
+        )
+        auth_url = sp_oauth.get_authorize_url()
+        st.write(f"[Click here to authorize with Spotify]({auth_url})")
+        
+        # Handle the authorization code from URL
+        code = st.experimental_get_query_params().get('code')
+        if code:
+            token_info = sp_oauth.get_access_token(code)
+            st.session_state.token_info = token_info
+            st.success("Logged in successfully!")
+    return st.session_state.get('token_info')
 
 # Initialize Spotify client
-sp = spotipy.Spotify(auth_manager=auth_manager)
+def init_spotify_client(token_info):
+    if token_info:
+        return spotipy.Spotify(auth=token_info['access_token'])
+    return None
+
+# Function to refresh access token if it is expired
+def refresh_token_if_needed(sp_oauth):
+    if sp_oauth.is_token_expired(st.session_state.token_info):
+        st.session_state.token_info = sp_oauth.refresh_access_token(st.session_state.token_info['refresh_token'])
 
 # Define mood features
 mood_features = {
@@ -44,7 +67,7 @@ mood_features = {
 }
 
 # Function to search for artists
-def search_artist(query):
+def search_artist(sp, query):
     results = sp.search(q=query, type='artist')
     if results['artists']['items']:
         first_artist = results['artists']['items'][0]
@@ -54,7 +77,7 @@ def search_artist(query):
     return []
 
 # Function to create a playlist
-def create_playlist(user_id, mood, artist_ids):
+def create_playlist(sp, user_id, mood, artist_ids):
     selected_features = mood_features[mood]
     artist_names = [sp.artist(artist_id)['name'] for artist_id in artist_ids[:5]]
     artist_names_str = ", ".join(artist_names)
@@ -84,68 +107,74 @@ def create_playlist(user_id, mood, artist_ids):
 # Streamlit app interface
 def main():
     st.title("Spotify Mood Playlist Generator")
-
-    user = sp.current_user()
-    user_id = user['id']
-    with st.sidebar:
-        pfp_url= user['images'][0]['url']
-        st.image(pfp_url, width=200)
-        st.write(f"Logged in as {user['display_name']}")
-        st.write(f"followers: {user['followers']['total']}")
-
-
-    # Mood selection
-    mood = st.selectbox("Choose your mood", ["happy", "sad", "calm", "energetic"])
     
-    # Initialize lists in session state
-    if 'artist_ids' not in st.session_state:
-        st.session_state.artist_ids = []
-    if 'artist_names' not in st.session_state:
-        st.session_state.artist_names = []
-
-    # Modify the input handling
-    artist_name_input = st.text_input("Search for an artist [up to 5 artist]:  (type 'done' when finished)")
-
-    if artist_name_input and artist_name_input.lower() != 'done':
-        artists = search_artist(artist_name_input)
-        if artists:
-            artist = artists[0]
-            st.write(f"Artist: {artist['name']}")
-            
-            # Get and display artist image if available
-            artist_info = sp.artist(artist['id'])
-            if artist_info['images']:
-                image_url = artist_info['images'][0]['url']  # Get the first image
-                st.image(image_url, width=200)  # Display the image
-            else:
-                st.write("No image available for this artist.")
-            
-            # Add artist to session state
-            if artist['id']:
-                st.session_state.artist_ids.append(artist['id'])
-                st.session_state.artist_names.append(artist['name'])
-                st.write(f"Added {artist['name']} to the selection.")
-        else:
-            st.write("No artists found.")
-
-
-    # If 'done' is typed, display the selected artists
-    if artist_name_input.lower() == 'done':
-        if st.session_state.artist_names:
-            st.write("Selected Artists:")
-            for artist in st.session_state.artist_names:
-                st.write(artist)
-        else:
-            st.write("No artists selected.")
-
-
-    # Button to create the playlist
-    if st.button("Create Playlist") and st.session_state.artist_ids:
-        create_playlist(user_id, mood, st.session_state.artist_ids)
+    # Handle authentication and token management
+    token_info = get_auth_manager()
+    if token_info:
+        sp_oauth = SpotifyOAuth(client_id=api_key, client_secret=secret_key, redirect_uri=redirect_uri, scope=scope)
+        refresh_token_if_needed(sp_oauth)
+        sp = init_spotify_client(token_info)
         
-        # Clear the lists after playlist creation
-        st.session_state.artist_ids = []
-        st.session_state.artist_names = []
+        if sp:
+            user = sp.current_user()
+            user_id = user['id']
+            with st.sidebar:
+                pfp_url = user['images'][0]['url'] if user['images'] else None
+                if pfp_url:
+                    st.image(pfp_url, width=200)
+                st.write(f"Logged in as {user['display_name']}")
+                st.write(f"Followers: {user['followers']['total']}")
+
+            # Mood selection
+            mood = st.selectbox("Choose your mood", ["happy", "sad", "calm", "energetic"])
+            
+            # Initialize lists in session state
+            if 'artist_ids' not in st.session_state:
+                st.session_state.artist_ids = []
+            if 'artist_names' not in st.session_state:
+                st.session_state.artist_names = []
+
+            # Modify the input handling
+            artist_name_input = st.text_input("Search for an artist [up to 5 artists]:  (type 'done' when finished)")
+
+            if artist_name_input and artist_name_input.lower() != 'done':
+                artists = search_artist(sp, artist_name_input)
+                if artists:
+                    artist = artists[0]
+                    st.write(f"Artist: {artist['name']}")
+                    
+                    # Get and display artist image if available
+                    artist_info = sp.artist(artist['id'])
+                    if artist_info['images']:
+                        image_url = artist_info['images'][0]['url']  # Get the first image
+                        st.image(image_url, width=200)  # Display the image
+                    else:
+                        st.write("No image available for this artist.")
+                    
+                    # Add artist to session state
+                    if artist['id']:
+                        st.session_state.artist_ids.append(artist['id'])
+                        st.session_state.artist_names.append(artist['name'])
+                        st.write(f"Added {artist['name']} to the selection.")
+                else:
+                    st.write("No artists found.")
+
+            # If 'done' is typed, display the selected artists
+            if artist_name_input.lower() == 'done':
+                if st.session_state.artist_names:
+                    st.write("Selected Artists:")
+                    for artist in st.session_state.artist_names:
+                        st.write(artist)
+                else:
+                    st.write("No artists selected.")
+
+            # Button to create the playlist
+            if st.button("Create Playlist") and st.session_state.artist_ids:
+                create_playlist(sp, user_id, mood, st.session_state.artist_ids)
+                
+                # Clear the lists after playlist creation
+                st.session_state.artist_ids = []
+                st.session_state.artist_names = []
 
 if __name__ == "__main__":
     main()
