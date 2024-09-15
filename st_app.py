@@ -22,33 +22,24 @@ scope = "playlist-modify-public user-library-read"
 
 # Initialize OAuth manager and handle access tokens in session state
 def get_auth_manager():
-    sp_oauth = SpotifyOAuth(
-        client_id=api_key,
-        client_secret=secret_key,
-        redirect_uri=redirect_uri,
-        scope=scope,
-        cache_path=".spotify_token_cache"
-    )
-    
-    # If there's already a token in session state, no need to re-authenticate
-    if 'token_info' in st.session_state:
-        return st.session_state.token_info
-    
-    # Get the authorization code from the query params (after redirection)
-    query_params = st.experimental_get_query_params()
-    
-    # If 'code' exists in the query params, we can now exchange it for a token
-    if 'code' in query_params:
-        code = query_params['code'][0]  # Extract the code from the URL
-        token_info = sp_oauth.get_access_token(code)
-        st.session_state.token_info = token_info  # Store the token in session state
-        return token_info
-
-    # If no token and no code, ask the user to authenticate
-    else:
+    if 'token_info' not in st.session_state:
+        sp_oauth = SpotifyOAuth(
+            client_id=api_key,
+            client_secret=secret_key,
+            redirect_uri=redirect_uri,
+            scope=scope,
+            cache_path=".spotify_token_cache"
+        )
         auth_url = sp_oauth.get_authorize_url()
         st.write(f"[Click here to authorize with Spotify]({auth_url})")
-        st.stop()  # Stops the Streamlit script until the user has authorized
+        
+        # Handle the authorization code from URL
+        code = st.experimental_get_query_params().get('code')
+        if code:
+            token_info = sp_oauth.get_access_token(code)
+            st.session_state.token_info = token_info
+            st.success("Logged in successfully!")
+    return st.session_state.get('token_info')
 
 # Initialize Spotify client
 def init_spotify_client(token_info):
