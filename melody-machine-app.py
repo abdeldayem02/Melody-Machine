@@ -22,24 +22,29 @@ scope = "playlist-modify-public user-library-read"
 
 # Initialize OAuth manager and handle access tokens in session state
 def get_auth_manager():
-    if 'token_info' not in st.session_state:
-        sp_oauth = SpotifyOAuth(
-            client_id=api_key,
-            client_secret=secret_key,
-            redirect_uri=redirect_uri,
-            scope=scope,
-            cache_path=".spotify_token_cache"
-        )
+    sp_oauth = SpotifyOAuth(
+        client_id=api_key,
+        client_secret=secret_key,
+        redirect_uri=redirect_uri,
+        scope=scope,
+        cache_handler=None  # Disable caching to file
+    )
+
+    if 'token_info' in st.session_state:
+        return st.session_state.token_info
+
+    # Get the authorization code from the query params (after redirection)
+    query_params = st.experimental_get_query_params()
+
+    if 'code' in query_params:
+        code = query_params['code'][0]
+        token_info = sp_oauth.get_access_token(code)
+        st.session_state.token_info = token_info  # Store in session state
+        return token_info
+    else:
         auth_url = sp_oauth.get_authorize_url()
         st.write(f"[Click here to authorize with Spotify]({auth_url})")
-        
-        # Handle the authorization code from URL
-        code = st.experimental_get_query_params().get('code')
-        if code:
-            token_info = sp_oauth.get_access_token(code)
-            st.session_state.token_info = token_info
-            st.success("Logged in successfully!")
-    return st.session_state.get('token_info')
+        st.stop()
 
 # Initialize Spotify client
 def init_spotify_client(token_info):
@@ -51,7 +56,6 @@ def init_spotify_client(token_info):
 def refresh_token_if_needed(sp_oauth):
     if sp_oauth.is_token_expired(st.session_state.token_info):
         st.session_state.token_info = sp_oauth.refresh_access_token(st.session_state.token_info['refresh_token'])
-
 # Define mood features
 mood_features = {
     "happy": {"danceability": random.uniform(0.502, 0.730), "energy": random.uniform(0.615, 0.865), 
@@ -117,15 +121,18 @@ def main():
     
     # Handle authentication and token management
     token_info = get_auth_manager()
+
     if token_info:
         sp_oauth = SpotifyOAuth(client_id=api_key, client_secret=secret_key, 
                                 redirect_uri=redirect_uri, scope=scope)
         refresh_token_if_needed(sp_oauth)
         sp = init_spotify_client(token_info)
-        
+        st.write("Token Information:", token_info)  # Display token information in Streamlit UI
         if sp:
             user = sp.current_user()
             user_id = user['id']
+            st.write(f"Logged in as {user['display_name']} ({user_id})")  # Display logged-in user info
+
             with st.sidebar:
                 pfp_url = user['images'][0]['url'] if user['images'] else None
                 if pfp_url:
