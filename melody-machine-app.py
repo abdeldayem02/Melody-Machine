@@ -1,6 +1,6 @@
 import streamlit as st
-import spotipy # type: ignore
-from spotipy.oauth2 import SpotifyOAuth  # type: ignore
+import spotipy
+from spotipy.oauth2 import SpotifyOAuth
 from dotenv import load_dotenv
 import os
 import random
@@ -20,72 +20,50 @@ redirect_uri = os.getenv('SPOTIPY_REDIRECT_URI')
 # Spotify authentication setup
 scope = "playlist-modify-public user-library-read"
 
+# Initialize OAuth manager and handle access tokens in session state
 def get_auth_manager():
-    sp_oauth = SpotifyOAuth(
-        client_id=api_key,
-        client_secret=secret_key,
-        redirect_uri=redirect_uri,
-        scope=scope,
-        cache_handler=None  # Disable caching to file
-    )
-    
-    if 'token_info' in st.session_state:
-        return st.session_state.token_info
-
-    # Get the authorization code from the query params (after redirection)
-    query_params = st.experimental_get_query_params()
-    
-    if 'code' in query_params:
-        code = query_params['code'][0]
-        token_info = sp_oauth.get_access_token(code)
-        st.session_state.token_info = token_info  # Store in session state
-        return token_info
-    else:
+    if 'token_info' not in st.session_state:
+        sp_oauth = SpotifyOAuth(
+            client_id=api_key,
+            client_secret=secret_key,
+            redirect_uri=redirect_uri,
+            scope=scope,
+            cache_path=".spotify_token_cache"
+        )
         auth_url = sp_oauth.get_authorize_url()
         st.write(f"[Click here to authorize with Spotify]({auth_url})")
-        st.stop()
+        
+        # Handle the authorization code from URL
+        code = st.experimental_get_query_params().get('code')
+        if code:
+            token_info = sp_oauth.get_access_token(code)
+            st.session_state.token_info = token_info
+            st.success("Logged in successfully!")
+    return st.session_state.get('token_info')
 
+# Initialize Spotify client
 def init_spotify_client(token_info):
-    # Initialize Spotify client with the provided token_info
-    if 'access_token' not in token_info:
-        st.error("Invalid token. Please authenticate again.")
-        st.stop()
+    if token_info:
+        return spotipy.Spotify(auth=token_info['access_token'])
+    return None
 
-    # Initialize Spotify client using the access token from token_info
-    sp = spotipy.Spotify(auth=token_info['access_token'])
-    return sp
-
-
-# Store token in session state instead of caching it in a file
+# Function to refresh access token if it is expired
 def refresh_token_if_needed(sp_oauth):
-    if 'token_info' in st.session_state:
-        if sp_oauth.is_token_expired(st.session_state.token_info):
-            st.session_state.token_info = sp_oauth.refresh_access_token(
-                st.session_state.token_info['refresh_token']
-            )
-    else:
-        st.error("No token info available. Please log in.")
-        st.stop()
+    if sp_oauth.is_token_expired(st.session_state.token_info):
+        st.session_state.token_info = sp_oauth.refresh_access_token(st.session_state.token_info['refresh_token'])
 
 # Define mood features
 mood_features = {
-    "happy": {"danceability": random.uniform(0.502, 0.730), "energy": random.uniform(0.615, 0.865), 
-            "valence": random.uniform(0.361, 0.742), "loudness": random.uniform(-8.043, -4.20), 
-            "acousticness": random.uniform(0.011, 0.202), "tempo": random.uniform(100.55, 142.40)},
-
-    "sad": {"danceability": random.uniform(0.211, 0.539), "energy": random.uniform(0.0489, 0.261), 
-            "valence": random.uniform(0.0548, 0.323), "loudness": random.uniform(-25.438, -15.531), 
-            "acousticness": random.uniform(0.6, 0.9), "instrumentalness": random.uniform(0.7, 0.98),
+    "happy": {"danceability": random.uniform(0.502, 0.730), "energy": random.uniform(0.615, 0.865), "valence": random.uniform(0.361, 0.742),
+              "loudness": random.uniform(-8.043, -4.20), "acousticness": random.uniform(0.011, 0.202), "tempo": random.uniform(100.55, 142.40)},
+    "sad": {"danceability": random.uniform(0.211, 0.539), "energy": random.uniform(0.0489, 0.261), "valence": random.uniform(0.0548, 0.323),
+            "loudness": random.uniform(-25.438, -15.531), "acousticness": random.uniform(0.6, 0.9), "instrumentalness": random.uniform(0.7, 0.98),
             "tempo": random.uniform(78.6, 129.227)},
-
-    "calm": {"danceability": random.uniform(0.422, 0.648), "energy": random.uniform(0.241, 0.5), 
-            "valence": random.uniform(0.225, 0.6), "loudness": random.uniform(-13.824, -8.264), 
-            "acousticness": random.uniform(0.589, 0.869), "tempo": random.uniform(90, 134.43)},
-
-    "energetic": {"danceability": random.uniform(0.466, 0.72), "energy": random.uniform(0.554, 0.882), 
-                "valence": random.uniform(0.17, 0.613), "loudness": random.uniform(-11.124, -6.513), 
-                "acousticness": random.uniform(0, 0.2), "instrumentalness": random.uniform(0.6, 0.9),
-                "tempo": random.uniform(107, 140)}
+    "calm": {"danceability": random.uniform(0.422, 0.648), "energy": random.uniform(0.241, 0.5), "valence": random.uniform(0.225, 0.6),
+             "loudness": random.uniform(-13.824, -8.264), "acousticness": random.uniform(0.589, 0.869), "tempo": random.uniform(90, 134.43)},
+    "energetic": {"danceability": random.uniform(0.466, 0.72), "energy": random.uniform(0.554, 0.882), "valence": random.uniform(0.17, 0.613),
+                  "loudness": random.uniform(-11.124, -6.513), "acousticness": random.uniform(0, 0.2), "instrumentalness": random.uniform(0.6, 0.9),
+                  "tempo": random.uniform(107, 140)}
 }
 
 # Function to search for artists
@@ -132,29 +110,20 @@ def main():
     
     # Handle authentication and token management
     token_info = get_auth_manager()
-
     if token_info:
-        st.write("Token Info:", token_info)  # Debug the content of token_info
-        sp_oauth = SpotifyOAuth(client_id=api_key, client_secret=secret_key, 
-                                redirect_uri=redirect_uri, scope=scope)
+        sp_oauth = SpotifyOAuth(client_id=api_key, client_secret=secret_key, redirect_uri=redirect_uri, scope=scope)
         refresh_token_if_needed(sp_oauth)
+        sp = init_spotify_client(token_info)
         
-        if 'access_token' in token_info:
-            sp = init_spotify_client(token_info)
-            st.write("Spotify Client Initialized")
+        if sp:
             user = sp.current_user()
             user_id = user['id']
-            st.write(f"Logged in as {user['display_name']} ({user_id})")
-        else:
-            st.error("Access token not found. Please log in.")
-            st.stop()
-
-        with st.sidebar:
-            pfp_url = user['images'][0]['url'] if user['images'] else None
-            if pfp_url:
-                st.image(pfp_url, width=200)
-            st.write(f"Logged in as {user['display_name']}")
-            st.write(f"Followers: {user['followers']['total']}")
+            with st.sidebar:
+                pfp_url = user['images'][0]['url'] if user['images'] else None
+                if pfp_url:
+                    st.image(pfp_url, width=200)
+                st.write(f"Logged in as {user['display_name']}")
+                st.write(f"Followers: {user['followers']['total']}")
 
             # Mood selection
             mood = st.selectbox("Choose your mood", ["happy", "sad", "calm", "energetic"])
