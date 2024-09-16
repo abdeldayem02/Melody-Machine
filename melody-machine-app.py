@@ -20,7 +20,6 @@ redirect_uri = os.getenv('SPOTIPY_REDIRECT_URI')
 # Spotify authentication setup
 scope = "playlist-modify-public user-library-read"
 
-# Initialize OAuth manager and handle access tokens in session state
 def get_auth_manager():
     sp_oauth = SpotifyOAuth(
         client_id=api_key,
@@ -29,13 +28,13 @@ def get_auth_manager():
         scope=scope,
         cache_handler=None  # Disable caching to file
     )
-
+    
     if 'token_info' in st.session_state:
         return st.session_state.token_info
 
     # Get the authorization code from the query params (after redirection)
     query_params = st.experimental_get_query_params()
-
+    
     if 'code' in query_params:
         code = query_params['code'][0]
         token_info = sp_oauth.get_access_token(code)
@@ -46,13 +45,20 @@ def get_auth_manager():
         st.write(f"[Click here to authorize with Spotify]({auth_url})")
         st.stop()
 
-# Initialize Spotify client
-def init_spotify_client(token_info):
-    if token_info:
-        return spotipy.Spotify(auth=token_info['access_token'])
-    return None
+def init_spotify_client():
+    if 'token_info' not in st.session_state:
+        st.error("User not authenticated. Please log in to Spotify.")
+        st.stop()
 
-# Function to refresh access token if it is expired
+    # Use the stored token info from session state
+    token_info = st.session_state.token_info
+
+    # Initialize Spotify client with the access token
+    sp = spotipy.Spotify(auth=token_info['access_token'])
+
+    return sp
+
+# Store token in session state instead of caching it in a file
 def refresh_token_if_needed(sp_oauth):
     if sp_oauth.is_token_expired(st.session_state.token_info):
         st.session_state.token_info = sp_oauth.refresh_access_token(st.session_state.token_info['refresh_token'])
