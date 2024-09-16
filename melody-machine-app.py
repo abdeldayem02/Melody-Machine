@@ -120,11 +120,11 @@ def main():
     st.title("Spotify Mood Playlist Generator")
     
     # Handle authentication and token management
-    token_info = get_auth_manager()
-
-    if token_info:
-        sp_oauth = SpotifyOAuth(client_id=api_key, client_secret=secret_key, 
-                                redirect_uri=redirect_uri, scope=scope)
+    sp_oauth = get_auth_manager()
+    
+    # Get and manage token
+    if 'token_info' in st.session_state:
+        token_info = st.session_state.token_info
         refresh_token_if_needed(sp_oauth)
         sp = init_spotify_client(token_info)
         st.write("Token Information:", token_info)  # Display token information in Streamlit UI
@@ -190,6 +190,7 @@ def main():
                 # Clear the lists after playlist creation
                 st.session_state.artist_ids = []
                 st.session_state.artist_names = []
-
+    else:
+        st.write("User is not authenticated. Please log in.")
 if __name__ == "__main__":
     main()
