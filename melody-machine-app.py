@@ -45,23 +45,28 @@ def get_auth_manager():
         st.write(f"[Click here to authorize with Spotify]({auth_url})")
         st.stop()
 
-def init_spotify_client():
-    if 'token_info' not in st.session_state:
-        st.error("User not authenticated. Please log in to Spotify.")
+def init_spotify_client(token_info):
+    # Initialize Spotify client with the provided token_info
+    if 'access_token' not in token_info:
+        st.error("Invalid token. Please authenticate again.")
         st.stop()
 
-    # Use the stored token info from session state
-    token_info = st.session_state.token_info
-
-    # Initialize Spotify client with the access token
+    # Initialize Spotify client using the access token from token_info
     sp = spotipy.Spotify(auth=token_info['access_token'])
-
     return sp
+
 
 # Store token in session state instead of caching it in a file
 def refresh_token_if_needed(sp_oauth):
-    if sp_oauth.is_token_expired(st.session_state.token_info):
-        st.session_state.token_info = sp_oauth.refresh_access_token(st.session_state.token_info['refresh_token'])
+    if 'token_info' in st.session_state:
+        if sp_oauth.is_token_expired(st.session_state.token_info):
+            st.session_state.token_info = sp_oauth.refresh_access_token(
+                st.session_state.token_info['refresh_token']
+            )
+    else:
+        st.error("No token info available. Please log in.")
+        st.stop()
+
 # Define mood features
 mood_features = {
     "happy": {"danceability": random.uniform(0.502, 0.730), "energy": random.uniform(0.615, 0.865), 
@@ -129,22 +134,27 @@ def main():
     token_info = get_auth_manager()
 
     if token_info:
+        st.write("Token Info:", token_info)  # Debug the content of token_info
         sp_oauth = SpotifyOAuth(client_id=api_key, client_secret=secret_key, 
                                 redirect_uri=redirect_uri, scope=scope)
         refresh_token_if_needed(sp_oauth)
-        sp = init_spotify_client(token_info)
-        st.write("Token Information:", token_info)  # Display token information in Streamlit UI
-        if sp:
+        
+        if 'access_token' in token_info:
+            sp = init_spotify_client(token_info)
+            st.write("Spotify Client Initialized")
             user = sp.current_user()
             user_id = user['id']
-            st.write(f"Logged in as {user['display_name']} ({user_id})")  # Display logged-in user info
+            st.write(f"Logged in as {user['display_name']} ({user_id})")
+        else:
+            st.error("Access token not found. Please log in.")
+            st.stop()
 
-            with st.sidebar:
-                pfp_url = user['images'][0]['url'] if user['images'] else None
-                if pfp_url:
-                    st.image(pfp_url, width=200)
-                st.write(f"Logged in as {user['display_name']}")
-                st.write(f"Followers: {user['followers']['total']}")
+        with st.sidebar:
+            pfp_url = user['images'][0]['url'] if user['images'] else None
+            if pfp_url:
+                st.image(pfp_url, width=200)
+            st.write(f"Logged in as {user['display_name']}")
+            st.write(f"Followers: {user['followers']['total']}")
 
             # Mood selection
             mood = st.selectbox("Choose your mood", ["happy", "sad", "calm", "energetic"])
