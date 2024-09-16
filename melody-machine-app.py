@@ -171,7 +171,7 @@ def main():
                     st.write("No artists selected.")
 
             # Add a slider for choosing the number of songs in the playlist
-            num_songs = st.slider("Select the number of songs", min_value=1, max_value=50, value=20)
+            num_songs = st.slider("Select the number of songs", min_value=1, max_value=100, value=20)
 
             # Button to create the playlist
             if st.button("Create Playlist") and st.session_state.artist_ids:
