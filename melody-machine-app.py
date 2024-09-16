@@ -27,19 +27,19 @@ def get_auth_manager():
             client_id=api_key,
             client_secret=secret_key,
             redirect_uri=redirect_uri,
-            scope=scope,
-            cache_path=".spotify_token_cache"
+            scope=scope
         )
         auth_url = sp_oauth.get_authorize_url()
         st.write(f"[Click here to authorize with Spotify]({auth_url})")
         
-        # Handle the authorization code from URL
+        # Get authorization code
         code = st.experimental_get_query_params().get('code')
         if code:
             token_info = sp_oauth.get_access_token(code)
             st.session_state.token_info = token_info
             st.success("Logged in successfully!")
     return st.session_state.get('token_info')
+
 
 # Initialize Spotify client
 def init_spotify_client(token_info):
@@ -77,7 +77,7 @@ def search_artist(sp, query):
     return []
 
 # Function to create a playlist
-def create_playlist(sp, user_id, mood, artist_ids):
+def create_playlist(sp, user_id, mood, artist_ids, num_songs):
     selected_features = mood_features[mood]
     artist_names = [sp.artist(artist_id)['name'] for artist_id in artist_ids[:5]]
     artist_names_str = ", ".join(artist_names)
@@ -88,7 +88,7 @@ def create_playlist(sp, user_id, mood, artist_ids):
 
     recommendation_params = {
         "seed_artists": artist_ids[:5], 
-        "limit": 50
+        "limit": num_songs  # Use the number of songs chosen by the user
     }
 
     for feature in ['danceability', 'energy', 'valence', 'loudness', 'acousticness', 'speechiness', 'tempo']:
@@ -103,6 +103,7 @@ def create_playlist(sp, user_id, mood, artist_ids):
         st.success(f"Playlist created and added to your Spotify profile! Playlist ID: {playlist_id}")
     else:
         st.error("No tracks found matching the mood criteria.")
+
 
 # Streamlit app interface
 def main():
@@ -167,14 +168,18 @@ def main():
                         st.write(artist)
                 else:
                     st.write("No artists selected.")
-
+            # Add a slider for choosing the number of songs in the playlist
+            num_songs = st.slider("Select the number of songs", min_value=1, max_value=100, value=20)
             # Button to create the playlist
             if st.button("Create Playlist") and st.session_state.artist_ids:
-                create_playlist(sp, user_id, mood, st.session_state.artist_ids)
+                create_playlist(sp, user_id, mood, st.session_state.artist_ids, num_songs)
                 
                 # Clear the lists after playlist creation
                 st.session_state.artist_ids = []
                 st.session_state.artist_names = []
+            if st.sidebar.button("Log Out"):
+                st.session_state.clear()
+                st.experimental_rerun()
 
 if __name__ == "__main__":
     main()
