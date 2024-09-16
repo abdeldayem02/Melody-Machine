@@ -1,6 +1,6 @@
 import streamlit as st
-import spotipy
-from spotipy.oauth2 import SpotifyOAuth
+import spotipy # type: ignore
+from spotipy.oauth2 import SpotifyOAuth  # type: ignore
 from dotenv import load_dotenv
 import os
 import random
@@ -54,16 +54,23 @@ def refresh_token_if_needed(sp_oauth):
 
 # Define mood features
 mood_features = {
-    "happy": {"danceability": random.uniform(0.502, 0.730), "energy": random.uniform(0.615, 0.865), "valence": random.uniform(0.361, 0.742),
-              "loudness": random.uniform(-8.043, -4.20), "acousticness": random.uniform(0.011, 0.202), "tempo": random.uniform(100.55, 142.40)},
-    "sad": {"danceability": random.uniform(0.211, 0.539), "energy": random.uniform(0.0489, 0.261), "valence": random.uniform(0.0548, 0.323),
-            "loudness": random.uniform(-25.438, -15.531), "acousticness": random.uniform(0.6, 0.9), "instrumentalness": random.uniform(0.7, 0.98),
+    "happy": {"danceability": random.uniform(0.502, 0.730), "energy": random.uniform(0.615, 0.865), 
+            "valence": random.uniform(0.361, 0.742), "loudness": random.uniform(-8.043, -4.20), 
+            "acousticness": random.uniform(0.011, 0.202), "tempo": random.uniform(100.55, 142.40)},
+
+    "sad": {"danceability": random.uniform(0.211, 0.539), "energy": random.uniform(0.0489, 0.261), 
+            "valence": random.uniform(0.0548, 0.323), "loudness": random.uniform(-25.438, -15.531), 
+            "acousticness": random.uniform(0.6, 0.9), "instrumentalness": random.uniform(0.7, 0.98),
             "tempo": random.uniform(78.6, 129.227)},
-    "calm": {"danceability": random.uniform(0.422, 0.648), "energy": random.uniform(0.241, 0.5), "valence": random.uniform(0.225, 0.6),
-             "loudness": random.uniform(-13.824, -8.264), "acousticness": random.uniform(0.589, 0.869), "tempo": random.uniform(90, 134.43)},
-    "energetic": {"danceability": random.uniform(0.466, 0.72), "energy": random.uniform(0.554, 0.882), "valence": random.uniform(0.17, 0.613),
-                  "loudness": random.uniform(-11.124, -6.513), "acousticness": random.uniform(0, 0.2), "instrumentalness": random.uniform(0.6, 0.9),
-                  "tempo": random.uniform(107, 140)}
+
+    "calm": {"danceability": random.uniform(0.422, 0.648), "energy": random.uniform(0.241, 0.5), 
+            "valence": random.uniform(0.225, 0.6), "loudness": random.uniform(-13.824, -8.264), 
+            "acousticness": random.uniform(0.589, 0.869), "tempo": random.uniform(90, 134.43)},
+
+    "energetic": {"danceability": random.uniform(0.466, 0.72), "energy": random.uniform(0.554, 0.882), 
+                "valence": random.uniform(0.17, 0.613), "loudness": random.uniform(-11.124, -6.513), 
+                "acousticness": random.uniform(0, 0.2), "instrumentalness": random.uniform(0.6, 0.9),
+                "tempo": random.uniform(107, 140)}
 }
 
 # Function to search for artists
@@ -111,7 +118,8 @@ def main():
     # Handle authentication and token management
     token_info = get_auth_manager()
     if token_info:
-        sp_oauth = SpotifyOAuth(client_id=api_key, client_secret=secret_key, redirect_uri=redirect_uri, scope=scope)
+        sp_oauth = SpotifyOAuth(client_id=api_key, client_secret=secret_key, 
+                                redirect_uri=redirect_uri, scope=scope)
         refresh_token_if_needed(sp_oauth)
         sp = init_spotify_client(token_info)
         
