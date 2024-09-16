@@ -27,7 +27,8 @@ def get_auth_manager():
             client_id=api_key,
             client_secret=secret_key,
             redirect_uri=redirect_uri,
-            scope=scope
+            scope=scope,
+            cache_path=None  # Disable shared cache file
         )
         auth_url = sp_oauth.get_authorize_url()
         st.write(f"[Click here to authorize with Spotify]({auth_url})")
@@ -112,7 +113,7 @@ def main():
     # Handle authentication and token management
     token_info = get_auth_manager()
     if token_info:
-        sp_oauth = SpotifyOAuth(client_id=api_key, client_secret=secret_key, redirect_uri=redirect_uri, scope=scope)
+        sp_oauth = SpotifyOAuth(client_id=api_key, client_secret=secret_key, redirect_uri=redirect_uri, scope=scope, cache_path=None)
         refresh_token_if_needed(sp_oauth)
         sp = init_spotify_client(token_info)
         
@@ -168,8 +169,10 @@ def main():
                         st.write(artist)
                 else:
                     st.write("No artists selected.")
+
             # Add a slider for choosing the number of songs in the playlist
-            num_songs = st.slider("Select the number of songs", min_value=1, max_value=100, value=20)
+            num_songs = st.slider("Select the number of songs", min_value=1, max_value=50, value=20)
+
             # Button to create the playlist
             if st.button("Create Playlist") and st.session_state.artist_ids:
                 create_playlist(sp, user_id, mood, st.session_state.artist_ids, num_songs)
@@ -177,9 +180,5 @@ def main():
                 # Clear the lists after playlist creation
                 st.session_state.artist_ids = []
                 st.session_state.artist_names = []
-            if st.sidebar.button("Log Out"):
-                st.session_state.clear()
-                st.experimental_rerun()
-
 if __name__ == "__main__":
     main()
