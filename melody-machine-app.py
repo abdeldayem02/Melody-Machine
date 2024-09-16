@@ -54,8 +54,16 @@ def init_spotify_client(token_info):
 
 # Function to refresh access token if it is expired
 def refresh_token_if_needed(sp_oauth):
-    if sp_oauth.is_token_expired(st.session_state.token_info):
-        st.session_state.token_info = sp_oauth.refresh_access_token(st.session_state.token_info['refresh_token'])
+    if 'token_info' in st.session_state and st.session_state.token_info:
+        token_info = st.session_state.token_info
+        if sp_oauth.is_token_expired(token_info):
+            st.session_state.token_info = sp_oauth.refresh_access_token(token_info['refresh_token'])
+            st.write("Token refreshed successfully!")
+        else:
+            st.write("Token is still valid!")
+    else:
+        st.write("Token information is not available.")
+
 # Define mood features
 mood_features = {
     "happy": {"danceability": random.uniform(0.502, 0.730), "energy": random.uniform(0.615, 0.865), 
@@ -123,16 +131,16 @@ def main():
     sp_oauth = get_auth_manager()
     
     # Get and manage token
-    if 'token_info' in st.session_state:
+    if 'token_info' in st.session_state and st.session_state.token_info:
         token_info = st.session_state.token_info
         refresh_token_if_needed(sp_oauth)
         sp = init_spotify_client(token_info)
         st.write("Token Information:", token_info)  # Display token information in Streamlit UI
+
         if sp:
             user = sp.current_user()
             user_id = user['id']
-            st.write(f"Logged in as {user['display_name']} ({user_id})")  # Display logged-in user info
-
+            st.write(f"Logged in as {user['display_name']} ({user_id})")
             with st.sidebar:
                 pfp_url = user['images'][0]['url'] if user['images'] else None
                 if pfp_url:
