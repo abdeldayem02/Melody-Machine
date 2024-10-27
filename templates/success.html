@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Playlist Created</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/4.5.2/css/bootstrap.min.css">
+    <style>
+        body {
+            background-color: #f8f9fa; /* Light background */
+        }
+        .playlist-card {
+            background: #fff; /* White card */
+            border-radius: 15px; /* Rounded corners */
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* Subtle shadow */
+            padding: 20px; /* Padding inside the card */
+            margin-top: 50px; /* Spacing from the top */
+        }
+    </style>
+</head>
+<body>
+    <div class="container text-center">
+        <div class="playlist-card">
+            <h2 class="mb-4">Your Mood-Based Playlist is Ready!</h2>
+            <p class="mb-4">You can check it out on Spotify:</p>
+            <a href="https://open.spotify.com/playlist/{{ playlist_id }}" target="_blank" class="btn btn-primary btn-lg mb-2">
+                View Playlist on Spotify
+            </a>
+            <br>
+            <a href="{{ url_for('home') }}" class="btn btn-secondary btn-lg">Create Another Playlist</a>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.3/dist/umd/popper.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+</body>
+</html>

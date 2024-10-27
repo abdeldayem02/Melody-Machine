@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spotify Mood Playlist Generator</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.1/css/all.min.css">
+    <style>
+        /* Custom styles */
+        body, html {
+            height: 100%;
+            margin: 0;
+            font-family: Arial, sans-serif;
+            color: #fff;
+        }
+        .container {
+            max-width: 600px;
+        }
+        .hero {
+            background: linear-gradient(135deg, #1DB954, #191414);
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            text-align: center;
+            color: white;
+        }
+        h1 {
+            font-size: 3em;
+            font-weight: bold;
+        }
+        p {
+            font-size: 1.2em;
+            margin-top: 15px;
+            margin-bottom: 30px;
+        }
+        .btn-primary {
+            background-color: #1DB954;
+            border: none;
+            padding: 12px 30px;
+            font-size: 1.2em;
+            border-radius: 25px;
+            color: white;
+        }
+        .btn-primary:hover {
+            background-color: #17a744;
+        }
+    </style>
+</head>
+<body>
+    <!-- Hero Section -->
+    <div class="hero">
+        <div class="container">
+            <h1>Welcome to Melody Machine</h1>
+            <p>Log in with Spotify to create mood-based playlists personalized just for you!</p>
+            <a href="{{ url_for('login') }}" class="btn btn-primary"><i class="fab fa-spotify"></i> Login with Spotify</a>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
