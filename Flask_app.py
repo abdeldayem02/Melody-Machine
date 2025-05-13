@@ -24,6 +24,57 @@ scope = "playlist-modify-public user-library-read"
 # Logging setup
 logging.basicConfig(level=logging.DEBUG)
 
+# Original mood features dictionary (for reference)
+# mood_features = {
+#     "happy": {"danceability": random.uniform(0.502, 0.730), "energy": random.uniform(0.615, 0.865), 
+#               "valence": random.uniform(0.361, 0.742), "loudness": random.uniform(-8.043, -4.20), 
+#               "acousticness": random.uniform(0.011, 0.202), "tempo": random.uniform(100.55, 142.40)},
+#     "sad": {"danceability": random.uniform(0.211, 0.539), "energy": random.uniform(0.0489, 0.261), 
+#             "valence": random.uniform(0.0548, 0.323), "loudness": random.uniform(-25.438, -15.531), 
+#             "acousticness": random.uniform(0.6, 0.9), "instrumentalness": random.uniform(0.7, 0.98),
+#             "tempo": random.uniform(78.6, 129.227)},
+#     "calm": {"danceability": random.uniform(0.422, 0.648), "energy": random.uniform(0.241, 0.5), 
+#              "valence": random.uniform(0.225, 0.6), "loudness": random.uniform(-13.824, -8.264), 
+#              "acousticness": random.uniform(0.589, 0.869), "tempo": random.uniform(90, 134.43)},
+#     "energetic": {"danceability": random.uniform(0.466, 0.72), "energy": random.uniform(0.554, 0.882), 
+#                   "valence": random.uniform(0.17, 0.613), "loudness": random.uniform(-11.124, -6.513), 
+#                   "acousticness": random.uniform(0, 0.2), "instrumentalness": random.uniform(0.6, 0.9),
+#                   "tempo": random.uniform(107, 140)}
+# }
+
+# Current mood features dictionary with wider ranges
+mood_features = {
+    "happy": {
+        "danceability": random.uniform(0.4, 0.9),    # Wider range for danceability
+        "energy": random.uniform(0.5, 0.95),         # Higher energy range
+        "valence": random.uniform(0.5, 0.95),        # Higher valence range
+        "acousticness": random.uniform(0.0, 0.4),    # Lower acousticness for happy songs
+        "tempo": random.uniform(95, 150)             # Wider tempo range
+    },
+    "sad": {
+        "danceability": random.uniform(0.2, 0.5),    # Lower danceability range
+        "energy": random.uniform(0.1, 0.4),          # Lower energy range
+        "valence": random.uniform(0.1, 0.4),         # Lower valence range
+        "acousticness": random.uniform(0.5, 0.95),   # Higher acousticness
+        "instrumentalness": random.uniform(0.3, 0.8), # Moderate to high instrumentalness
+        "tempo": random.uniform(60, 100)             # Slower tempo range
+    },
+    "calm": {
+        "danceability": random.uniform(0.3, 0.6),    # Moderate danceability
+        "energy": random.uniform(0.2, 0.5),          # Lower energy
+        "valence": random.uniform(0.3, 0.7),         # Wider valence range
+        "acousticness": random.uniform(0.5, 0.95),   # Higher acousticness
+        "tempo": random.uniform(70, 110)             # Moderate tempo range
+    },
+    "energetic": {
+        "danceability": random.uniform(0.6, 0.9),    # Higher danceability
+        "energy": random.uniform(0.7, 0.95),         # High energy
+        "valence": random.uniform(0.4, 0.9),         # Wider valence range
+        "acousticness": random.uniform(0.0, 0.3),    # Lower acousticness
+        "tempo": random.uniform(120, 160)            # Higher tempo range
+    }
+}
+
 class SessionCacheHandler(CacheHandler):
     def __init__(self, session):
         self.session = session
@@ -69,20 +120,6 @@ def get_spotify_client():
     if token_info:
         return spotipy.Spotify(auth=token_info['access_token'])
     return None
-
-# Mood features dictionary remains the same
-mood_features = {
-    "happy": {"danceability": random.uniform(0.502, 0.730), "energy": random.uniform(0.615, 0.865), "valence": random.uniform(0.361, 0.742),
-              "loudness": random.uniform(-8.043, -4.20), "acousticness": random.uniform(0.011, 0.202), "tempo": random.uniform(100.55, 142.40)},
-    "sad": {"danceability": random.uniform(0.211, 0.539), "energy": random.uniform(0.0489, 0.261), "valence": random.uniform(0.0548, 0.323),
-            "loudness": random.uniform(-25.438, -15.531), "acousticness": random.uniform(0.6, 0.9), "instrumentalness": random.uniform(0.7, 0.98),
-            "tempo": random.uniform(78.6, 129.227)},
-    "calm": {"danceability": random.uniform(0.422, 0.648), "energy": random.uniform(0.241, 0.5), "valence": random.uniform(0.225, 0.6),
-             "loudness": random.uniform(-13.824, -8.264), "acousticness": random.uniform(0.589, 0.869), "tempo": random.uniform(90, 134.43)},
-    "energetic": {"danceability": random.uniform(0.466, 0.72), "energy": random.uniform(0.554, 0.882), "valence": random.uniform(0.17, 0.613),
-                  "loudness": random.uniform(-11.124, -6.513), "acousticness": random.uniform(0, 0.2), "instrumentalness": random.uniform(0.6, 0.9),
-                  "tempo": random.uniform(107, 140)}
-}
 
 @app.route('/')
 def index():
@@ -136,21 +173,44 @@ def search_artist():
         return redirect(url_for('login'))
     
     try:
+        # Get current user info
+        user = sp.current_user()
+        user_id = user['id']
+        user_name = user['display_name']
+        pfp_url = user['images'][0]['url'] if user['images'] else None
+        
         artist_name = request.form.get('artist_name')
         results = sp.search(q=artist_name, type='artist', limit=1)
         
+        # Initialize artists list in session if it doesn't exist
+        if 'added_artists' not in session:
+            session['added_artists'] = []
+
         if results['artists']['items']:
             artist_info = results['artists']['items'][0]
             artist_id = artist_info['id']
             artist_name = artist_info['name']
             artist_image = artist_info['images'][0]['url'] if artist_info['images'] else None
 
+            # Store artist info in session
             session.setdefault('artist_ids', []).append(artist_id)
-            session['artist_name'] = artist_name
+            session['added_artists'].append({
+                'name': artist_name,
+                'image': artist_image
+            })
 
-            return render_template('home.html', artist_name=artist_name, artist_image=artist_image)
+            return render_template('home.html', 
+                                user_name=user_name,
+                                user_id=user_id,
+                                pfp_url=pfp_url,
+                                added_artists=session['added_artists'])
         else:
-            return render_template('home.html', error="Artist not found.")
+            return render_template('home.html',
+                                user_name=user_name,
+                                user_id=user_id,
+                                pfp_url=pfp_url,
+                                added_artists=session['added_artists'],
+                                error="Artist not found.")
     except Exception as e:
         logging.error(f"Search artist error: {e}")
         return redirect(url_for('login'))
@@ -158,39 +218,109 @@ def search_artist():
 @app.route('/create_playlist', methods=['POST'])
 def create_playlist():
     sp = get_spotify_client()
-    if not sp or not session.get('artist_ids'):
+    if not sp:
         return redirect(url_for('login'))
     
     try:
-        mood = request.form['mood']
-        num_songs = int(request.form['num_songs'])
-        user_id = sp.current_user()['id']
-        selected_features = mood_features[mood]
-        artist_ids = session.get('artist_ids')
+        # Get current user info for rendering
+        user = sp.current_user()
+        user_id = user['id']
+        user_name = user['display_name']
+        pfp_url = user['images'][0]['url'] if user['images'] else None
         
-        playlist = sp.user_playlist_create(user_id, f"{mood.capitalize()} Mood Playlist", public=True)
+        if not session.get('artist_ids'):
+            return render_template('home.html',
+                                user_name=user_name,
+                                user_id=user_id,
+                                pfp_url=pfp_url,
+                                added_artists=session.get('added_artists', []),
+                                error="Please add at least one artist before creating a playlist.")
+        
+        mood = request.form['mood']
+        num_songs = min(int(request.form['num_songs']), 100)  # Limit to 100 songs
+        selected_features = mood_features[mood].copy()  # Create a copy to avoid modifying the original
+        artist_ids = session.get('artist_ids', [])[:5]  # Get up to 5 artists
+        
+        logging.info(f"Creating playlist with mood: {mood}, num_songs: {num_songs}, artists: {artist_ids}")
+        
+        # Create the playlist
+        playlist_name = f"{mood.capitalize()} Mood Playlist - {', '.join([artist['name'] for artist in session.get('added_artists', [])])}"
+        playlist = sp.user_playlist_create(user_id, playlist_name, public=True)
         playlist_id = playlist['id']
         
+        # Prepare recommendation parameters with valid features only
+        valid_features = ["danceability", "energy", "valence", "acousticness", "instrumentalness", "tempo"]
         recommendation_params = {
-            "seed_artists": artist_ids[:5],
+            "seed_artists": artist_ids,
             "limit": num_songs
         }
         
+        # Add target features for the mood
         for feature, value in selected_features.items():
-            recommendation_params[f"target_{feature}"] = value
-
-        recommendations = sp.recommendations(**recommendation_params)
-        track_uris = [track['uri'] for track in recommendations['tracks']]
-
-        if track_uris:
-            sp.playlist_add_items(playlist_id, track_uris)
-            session['artist_ids'] = []
-            return render_template('success.html', playlist_id=playlist_id)
+            if feature in valid_features:
+                if feature == "tempo":
+                    # Spotify expects tempo as is
+                    recommendation_params[f"target_{feature}"] = value
+                else:
+                    # Ensure other features are between 0 and 1
+                    recommendation_params[f"target_{feature}"] = max(0.0, min(1.0, value))
         
-        return render_template('home.html', error="No tracks found for the given criteria.")
+        logging.info(f"Recommendation parameters: {recommendation_params}")
+        
+        # Get recommendations
+        try:
+            recommendations = sp.recommendations(**recommendation_params)
+            if not recommendations['tracks']:
+                logging.error("No tracks returned from recommendations API")
+                raise Exception("No tracks found in recommendations")
+            
+            track_uris = [track['uri'] for track in recommendations['tracks']]
+            logging.info(f"Got {len(track_uris)} track recommendations")
+            
+            if track_uris:
+                # Add tracks in batches of 100 (Spotify API limit)
+                for i in range(0, len(track_uris), 100):
+                    batch = track_uris[i:i + 100]
+                    sp.playlist_add_items(playlist_id, batch)
+                    logging.info(f"Added batch of {len(batch)} tracks to playlist")
+                
+                # Clear the artist lists after successful playlist creation
+                session['artist_ids'] = []
+                session['added_artists'] = []
+                
+                # Get the playlist URL and verify tracks were added
+                playlist_url = f"https://open.spotify.com/playlist/{playlist_id}"
+                playlist_tracks = sp.playlist_items(playlist_id)
+                if not playlist_tracks['items']:
+                    raise Exception("Tracks were not properly added to the playlist")
+                
+                logging.info(f"Successfully created playlist with {len(playlist_tracks['items'])} tracks")
+                return render_template('success.html', 
+                                    playlist_id=playlist_id,
+                                    playlist_url=playlist_url,
+                                    user_name=user_name,
+                                    user_id=user_id,
+                                    pfp_url=pfp_url)
+            else:
+                raise Exception("No tracks found in recommendations")
+                
+        except Exception as e:
+            logging.error(f"Recommendation error: {str(e)}")
+            return render_template('home.html',
+                                user_name=user_name,
+                                user_id=user_id,
+                                pfp_url=pfp_url,
+                                added_artists=session.get('added_artists', []),
+                                error=f"Error getting recommendations: {str(e)}")
+                
     except Exception as e:
-        logging.error(f"Create playlist error: {e}")
-        return redirect(url_for('login'))
+        logging.error(f"Create playlist error: {str(e)}")
+        return render_template('home.html',
+                            user_name=user_name,
+                            user_id=user_id,
+                            pfp_url=pfp_url,
+                            added_artists=session.get('added_artists', []),
+                            error=f"Error creating playlist: {str(e)}")
 
 @app.route('/logout')
 def logout():

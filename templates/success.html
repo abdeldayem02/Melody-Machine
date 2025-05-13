@@ -3,36 +3,93 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Playlist Created</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/4.5.2/css/bootstrap.min.css">
+    <title>Playlist Created - Mood Playlist Generator</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         body {
-            background-color: #f8f9fa; /* Light background */
+            background-color: #f5f5f5;
+            color: #333;
+            font-family: Arial, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .navbar {
+            background-color: #1DB954;
+        }
+        .navbar-brand {
+            color: #fff !important;
+        }
+        .container {
+            max-width: 800px;
+            margin-top: 50px;
         }
         .playlist-card {
-            background: #fff; /* White card */
-            border-radius: 15px; /* Rounded corners */
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* Subtle shadow */
-            padding: 20px; /* Padding inside the card */
-            margin-top: 50px; /* Spacing from the top */
+            background: #fff;
+            border-radius: 15px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            padding: 20px;
+            margin-top: 30px;
+            text-align: center;
+        }
+        .btn {
+            border-radius: 25px;
+            padding: 10px 30px;
+            margin: 10px;
+        }
+        .btn-spotify {
+            background-color: #1DB954;
+            color: white;
+        }
+        .btn-spotify:hover {
+            background-color: #17a744;
+            color: white;
+        }
+        footer {
+            margin-top: auto;
+            text-align: center;
+            padding: 10px;
+            background-color: #191414;
+            color: #fff;
         }
     </style>
 </head>
 <body>
-    <div class="container text-center">
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark">
+        <a class="navbar-brand" href="#">Mood Playlist Generator</a>
+    </nav>
+
+    <div class="container">
+        <!-- User welcome section -->
+        <div class="text-center mt-4">
+            <h2>Success, {{ user_name }}!</h2>
+            {% if pfp_url %}
+                <img src="{{ pfp_url }}" alt="Profile Picture" class="rounded-circle mb-3" width="100">
+            {% endif %}
+        </div>
+
         <div class="playlist-card">
-            <h2 class="mb-4">Your Mood-Based Playlist is Ready!</h2>
-            <p class="mb-4">You can check it out on Spotify:</p>
-            <a href="https://open.spotify.com/playlist/{{ playlist_id }}" target="_blank" class="btn btn-primary btn-lg mb-2">
-                View Playlist on Spotify
+            <h3 class="mb-4">Your Mood-Based Playlist is Ready!</h3>
+            <p class="mb-4">Your new playlist has been created and filled with songs matching your mood.</p>
+            
+            <a href="{{ playlist_url }}" target="_blank" class="btn btn-spotify btn-lg mb-3">
+                <i class="fab fa-spotify mr-2"></i>Open in Spotify
             </a>
             <br>
-            <a href="{{ url_for('home') }}" class="btn btn-secondary btn-lg">Create Another Playlist</a>
+            <a href="{{ url_for('home') }}" class="btn btn-outline-secondary btn-lg">
+                <i class="fas fa-plus mr-2"></i>Create Another Playlist
+            </a>
         </div>
     </div>
 
-    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.3/dist/umd/popper.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <!-- Footer -->
+    <footer>
+        <p>&copy; {{ current_year }} Melody Machine</p>
+    </footer>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
